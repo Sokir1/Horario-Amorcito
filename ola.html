@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Horario Semanal - Puerto Madryn Edition</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            /* Paleta Atardecer en Madryn (Rosa + Mar) */
+            --bg-gradient: linear-gradient(135deg, #FFF0F5 0%, #E0F7FA 100%);
+            --panel: #FFFFFF;
+            --cell: #FFDDE6;
+            --accent: #F6A6C1;
+            --accent-ocean: #80DEEA;
+            --text-strong: #C84A7A;
+            --text-ocean: #00838F;
+            --text-main: #4A3B42;
+            --shadow: rgba(200, 150, 170, 0.15);
+            
+            /* Colores de las materias (Pasteles suaves) */
+            --color-analisis: #FFDDE6;   /* Rosa suave */
+            --color-algebra: #E1F5FE;    /* Celestito */
+            --color-sociedad: #E8F5E9;   /* Verde agüita */
+            --color-integ: #FFF9C4;      /* Amarillo patito */
+            --color-fund: #F3E5F5;       /* Lila tierno */
+
+            --font-title: 'Playfair Display', serif;
+            --font-body: 'Poppins', sans-serif;
+            --radius: 16px;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            font-family: var(--font-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background: linear-gradient(45deg, var(--accent), #FFA4C8);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-family: var(--font-body);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px var(--shadow);
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(246, 166, 193, 0.4);
+        }
+
+        button.outline {
+            background: white;
+            color: var(--text-strong);
+            border: 2px solid var(--accent);
+        }
+
+        #capture-area {
+            background-color: var(--panel);
+            padding: 30px 40px;
+            border-radius: var(--radius);
+            box-shadow: 0 10px 40px rgba(128, 222, 234, 0.2);
+            position: relative;
+        }
+
+        /* Estilos del Encabezado y la Ballena */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-family: var(--font-title);
+            background: linear-gradient(45deg, var(--text-strong), var(--text-ocean));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.8rem;
+            margin: 0 0 15px 0;
+        }
+
+        /* Contenedor de la frase y la ballenita */
+        .motivation-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #FFF, #E0F7FA);
+            padding: 10px 25px;
+            border-radius: 30px;
+            color: var(--text-ocean);
+            font-weight: 500;
+            box-shadow: 0 4px 15px rgba(0, 131, 143, 0.1);
+            border: 1px solid rgba(128, 222, 234, 0.5);
+            font-size: 1.05rem;
+        }
+
+        /* Animación de flotar para la ballena */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(-2deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+
+        .cute-whale {
+            width: 70px;
+            height: 70px;
+            animation: float 4s ease-in-out infinite;
+            filter: drop-shadow(0px 8px 12px rgba(0, 131, 143, 0.15));
+        }
+
+        /* Grilla del Horario */
+        .schedule-wrapper {
+            overflow-x: auto;
+            padding-bottom: 20px;
+        }
+
+        .grid {
+            display: grid;
+            min-width: 900px;
+            position: relative;
+            background-color: #FAFAFA;
+            border-radius: 12px;
+            border: 2px solid rgba(128, 222, 234, 0.2);
+            overflow: hidden;
+        }
+
+        .grid-day-col {
+            border-left: 1px dashed rgba(128, 222, 234, 0.4);
+            background-color: transparent;
+        }
+
+        .grid-hour-line {
+            border-top: 1px solid rgba(246, 166, 193, 0.3);
+            z-index: 1;
+        }
+
+        .grid-half-hour-line {
+            border-top: 1px dashed rgba(200, 150, 170, 0.15);
+            z-index: 1;
+        }
+
+        .grid-header {
+            background: linear-gradient(to bottom, #FFFFFF, #F8FDFF);
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-ocean);
+            border-bottom: 3px solid var(--accent-ocean);
+            z-index: 2;
+        }
+
+        .grid-time {
+            padding-top: 5px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #7A626B;
+            background-color: #FFF;
+            border-right: 1px solid rgba(128, 222, 234, 0.3);
+            border-bottom: 1px solid rgba(246, 166, 193, 0.2);
+            z-index: 2;
+        }
+
+        /* Bloques de Eventos */
+        .event {
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border-left: 6px solid var(--text-strong);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 5;
+            margin: 2px 5px;
+            position: relative;
+        }
+
+        .event::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+        }
+
+        .event:hover {
+            transform: scale(1.02) translateY(-2px);
+            box-shadow: 0 8px 20px rgba(128, 222, 234, 0.3);
+            z-index: 10;
+        }
+
+        .event-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #2D2428;
+            line-height: 1.2;
+            font-size: 0.9rem;
+        }
+
+        .event-time {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-strong);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .event-note {
+            font-size: 0.75rem;
+            opacity: 0.85;
+            margin-top: auto;
+            color: #4A3B42;
+        }
+
+        /* Modal */
+        dialog {
+            border: none;
+            border-radius: var(--radius);
+            padding: 30px;
+            width: 90%;
+            max-width: 400px;
+            background-color: #FFF;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            font-family: var(--font-body);
+        }
+
+        dialog::backdrop {
+            background-color: rgba(0, 131, 143, 0.3);
+            backdrop-filter: blur(4px);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            color: var(--text-ocean);
+            font-size: 0.9rem;
+        }
+
+        .form-group input, .form-group textarea {
+            padding: 10px;
+            border: 2px solid #E0F7FA;
+            border-radius: 8px;
+            font-family: inherit;
+            outline: none;
+            transition: border 0.3s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            border-color: var(--accent-ocean);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .controls { display: none; }
+            #capture-area { box-shadow: none; padding: 0; background: white; }
+            .grid { border: 1px solid #ddd; }
+            .event { box-shadow: none; border: 1px solid #ddd; border-left-width: 5px; }
+            .cute-whale { display: none; } /* Ocultar ballena en impresión si se prefiere formal */
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="controls">
+        <button onclick="exportPNG()">🖼️ Exportar PNG</button>
+        <button onclick="exportPDF()">📄 Exportar PDF</button>
+        <button onclick="window.print()">🖨️ Imprimir</button>
+        <button class="outline" onclick="resetData()">🔄 Restaurar Original</button>
+    </div>
+
+    <div id="capture-area">
+        <div class="header">
+            <h1 id="schedule-title">Horario Universitario</h1>
+            
+            <div class="motivation-container">
+                <svg class="cute-whale" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 25 C42 12, 35 25, 50 40 C65 25, 58 12, 50 25" fill="#F6A6C1" opacity="0.8"/>
+                    <path d="M50 40 Q50 45 48 50" stroke="#80DEEA" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    
+                    <path d="M85 65 C85 85, 15 85, 15 65 C15 45, 85 45, 85 65 Z" fill="#4DD0E1"/>
+                    <path d="M85 65 C85 85, 15 85, 15 65 C15 55, 50 55, 85 65 Z" fill="#B2EBF2" opacity="0.4"/> <path d="M15 65 C5 55, 2 68, 8 75 C12 80, 25 75, 18 65" fill="#4DD0E1"/>
+                    <path d="M15 65 C5 75, 2 62, 8 55 C12 50, 25 55, 18 65" fill="#4DD0E1"/>
+                    
+                    <path d="M45 70 C55 85, 35 85, 45 70" fill="#00BCD4"/>
+                    
+                    <circle cx="68" cy="60" r="3.5" fill="#263238"/>
+                    <circle cx="69" cy="59" r="1.5" fill="#FFFFFF"/> <ellipse cx="76" cy="64" rx="4" ry="2.5" fill="#F6A6C1" opacity="0.7"/>
+                    
+                    <path d="M78 68 Q73 72 68 68" stroke="#263238" fill="none" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+
+                <div class="badge">
+                    🌊 <span id="motivational-phrase"></span> 💖
+                </div>
+            </div>
+        </div>
+
+        <div class="schedule-wrapper">
+            <div class="grid" id="grid">
+                </div>
+        </div>
+    </div>
+</div>
+
+<dialog id="edit-modal">
+    <h3 style="color: var(--text-ocean); margin-top:0;">Editar Materia 🐋</h3>
+    <input type="hidden" id="edit-id">
+    
+    <div class="form-group">
+        <label>Título</label>
+        <input type="text" id="edit-title">
+    </div>
+    <div class="form-group">
+        <label>Nota (Comisión/Aula)</label>
+        <textarea id="edit-note" rows="2"></textarea>
+    </div>
+    <div class="form-group">
+        <label>Color Base</label>
+        <input type="color" id="edit-color" value="#FFDDE6">
+    </div>
+    
+    <div class="modal-actions">
+        <button class="outline" onclick="closeModal()">Cancelar</button>
+        <button onclick="saveEvent()">Guardar</button>
+    </div>
+</dialog>
+
+<script>
+    const defaultData = {
+        "title": "Ingeniería 2026",
+        "motivationalPhrase": "Navegando el 2026 con calma y constancia",
+        "days": ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"],
+        "timeRange": {
+            "start": "16:00",
+            "end": "24:00"
+        },
+        "events": [
+            // Análisis Matemático I
+            { "id": "1", "day": "Lunes", "start": "19:40", "end": "22:55", "title": "Análisis Matemático I", "color": "var(--color-analisis)", "note": "Com. 12 (1GRD N) - Aula 304 Ant." },
+            { "id": "2", "day": "Martes", "start": "18:00", "end": "20:25", "title": "Análisis Matemático I", "color": "var(--color-analisis)", "note": "Com. 12 (1GRD N) - Aula 304 Ant." },
+            { "id": "3", "day": "Miércoles", "start": "20:30", "end": "22:55", "title": "Análisis Matemático I", "color": "var(--color-analisis)", "note": "Com. 12 (1GRD N) - Aula 304 Ant." },
+
+            // Álgebra y Geometría Analítica
+            { "id": "4", "day": "Martes", "start": "20:30", "end": "22:55", "title": "Álgebra y Geom. Analítica", "color": "var(--color-algebra)", "note": "Com. 12 (1GRD N) - Aula 304 Ant." },
+            { "id": "5", "day": "Jueves", "start": "19:40", "end": "22:55", "title": "Álgebra y Geom. Analítica", "color": "var(--color-algebra)", "note": "Com. 12 (1GRD N) - Aula 304 Ant." },
+            { "id": "6", "day": "Viernes", "start": "17:10", "end": "19:35", "title": "Álgebra y Geom. Analítica", "color": "var(--color-algebra)", "note": "Com. 12 (1GRD N) - Aula 304 Ant." },
+
+            // Ingeniería y Sociedad
+            { "id": "7", "day": "Lunes", "start": "18:00", "end": "19:35", "title": "Ingeniería y Sociedad", "color": "var(--color-sociedad)", "note": "Com. 12 (1GRD N) - Aula 304 Ant." },
+            { "id": "8", "day": "Viernes", "start": "19:40", "end": "21:15", "title": "Ingeniería y Sociedad", "color": "var(--color-sociedad)", "note": "Com. 12 (1GRD N) - Aula 304 Ant." },
+
+            // Integración Eléctrica I
+            { "id": "9", "day": "Viernes", "start": "21:20", "end": "23:45", "title": "Integración Eléctrica I", "color": "var(--color-integ)", "note": "Com. 1 (1Q) - Aula 603 Ant." },
+
+            // Fundamentos de Informática
+            { "id": "10", "day": "Lunes", "start": "16:20", "end": "17:55", "title": "Fundamentos de Informática", "color": "var(--color-fund)", "note": "Com. 6 (1Q) - Aula 100 Ant." },
+            { "id": "11", "day": "Martes", "start": "16:20", "end": "17:55", "title": "Fundamentos de Informática", "color": "var(--color-fund)", "note": "Com. 6 (1Q) - Aula 100 Ant." }
+        ]
+    };
+
+    let currentData = {};
+
+    function parseTime(timeStr) {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    }
+
+    function formatTime(minutes) {
+        const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+        const m = (minutes % 60).toString().padStart(2, '0');
+        return `${h}:${m}`;
+    }
+
+    function renderSchedule() {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = ''; 
+
+        document.getElementById('schedule-title').innerText = currentData.title;
+        document.getElementById('motivational-phrase').innerText = currentData.motivationalPhrase;
+
+        const { days, timeRange, events } = currentData;
+        const startMin = parseTime(timeRange.start);
+        const endMin = parseTime(timeRange.end);
+        const totalMinutes = endMin - startMin; 
+        
+        grid.style.gridTemplateColumns = `75px repeat(${days.length}, 1fr)`;
+        grid.style.gridTemplateRows = `auto repeat(${totalMinutes}, 2px)`; 
+
+        const emptyCorner = document.createElement('div');
+        emptyCorner.className = 'grid-header';
+        emptyCorner.style.gridColumn = '1';
+        emptyCorner.style.gridRow = '1';
+        emptyCorner.style.borderRight = '1px solid rgba(128, 222, 234, 0.4)';
+        grid.appendChild(emptyCorner);
+
+        days.forEach((day, index) => {
+            const el = document.createElement('div');
+            el.className = 'grid-header';
+            el.innerText = day;
+            el.style.gridColumn = index + 2;
+            el.style.gridRow = 1;
+            grid.appendChild(el);
+
+            const col = document.createElement('div');
+            col.className = 'grid-day-col';
+            col.style.gridColumn = index + 2;
+            col.style.gridRow = `2 / span ${totalMinutes}`;
+            grid.appendChild(col);
+        });
+
+        for (let m = 0; m < totalMinutes; m += 30) {
+            const rowStart = m + 2;
+
+            if (m % 60 === 0) {
+                const timeEl = document.createElement('div');
+                timeEl.className = 'grid-time';
+                timeEl.innerText = formatTime(startMin + m);
+                timeEl.style.gridColumn = 1;
+                timeEl.style.gridRow = `${rowStart} / span 60`;
+                grid.appendChild(timeEl);
+
+                const line = document.createElement('div');
+                line.className = 'grid-hour-line';
+                line.style.gridColumn = `2 / span ${days.length}`;
+                line.style.gridRow = rowStart;
+                grid.appendChild(line);
+            } else {
+                const halfLine = document.createElement('div');
+                halfLine.className = 'grid-half-hour-line';
+                halfLine.style.gridColumn = `2 / span ${days.length}`;
+                halfLine.style.gridRow = rowStart;
+                grid.appendChild(halfLine);
+            }
+        }
+
+        events.forEach(ev => {
+            const dayIndex = days.indexOf(ev.day);
+            if (dayIndex === -1) return;
+
+            const evStartMin = parseTime(ev.start);
+            const evEndMin = parseTime(ev.end);
+            
+            const offsetMin = evStartMin - startMin;
+            const durationMin = evEndMin - evStartMin;
+
+            const el = document.createElement('div');
+            el.className = 'event';
+            
+            // Asignar color según el JSON
+            if (ev.color.startsWith('var')) {
+                // Para las variables de CSS, dejamos que el estilo en línea lo aplique
+                el.style.backgroundColor = ev.color;
+                // Ajustamos el borde lateral a una versión un poco más oscura para contraste
+                el.style.borderLeftColor = 'var(--text-ocean)';
+            } else {
+                el.style.backgroundColor = ev.color;
+            }
+            
+            el.style.gridColumn = dayIndex + 2;
+            el.style.gridRow = `${offsetMin + 2} / span ${durationMin}`;
+
+            el.innerHTML = `
+                <div class="event-title">${ev.title}</div>
+                <div class="event-time">⏱️ ${ev.start} - ${ev.end}</div>
+                ${ev.note ? `<div class="event-note">${ev.note}</div>` : ''}
+            `;
+
+            el.onclick = () => openModal(ev);
+            grid.appendChild(el);
+        });
+    }
+
+    function init() {
+        const saved = localStorage.getItem('scheduleMadryn2026');
+        if (saved) {
+            currentData = JSON.parse(saved);
+        } else {
+            currentData = JSON.parse(JSON.stringify(defaultData));
+        }
+        renderSchedule();
+    }
+
+    function resetData() {
+        if(confirm("¿Volver al horario original?")) {
+            currentData = JSON.parse(JSON.stringify(defaultData));
+            localStorage.setItem('scheduleMadryn2026', JSON.stringify(currentData));
+            renderSchedule();
+        }
+    }
+
+    const modal = document.getElementById('edit-modal');
+
+    function openModal(ev) {
+        document.getElementById('edit-id').value = ev.id;
+        document.getElementById('edit-title').value = ev.title;
+        document.getElementById('edit-note').value = ev.note || '';
+        document.getElementById('edit-color').value = ev.color.startsWith('var') ? '#E1F5FE' : ev.color;
+        modal.showModal();
+    }
+
+    function closeModal() {
+        modal.close();
+    }
+
+    function saveEvent() {
+        const id = document.getElementById('edit-id').value;
+        const index = currentData.events.findIndex(e => e.id === id);
+        if (index > -1) {
+            currentData.events[index].title = document.getElementById('edit-title').value;
+            currentData.events[index].note = document.getElementById('edit-note').value;
+            currentData.events[index].color = document.getElementById('edit-color').value;
+            
+            localStorage.setItem('scheduleMadryn2026', JSON.stringify(currentData));
+            renderSchedule();
+            closeModal();
+        }
+    }
+
+    async function exportPNG() {
+        const captureArea = document.getElementById('capture-area');
+        const canvas = await html2canvas(captureArea, {
+            scale: 2,
+            backgroundColor: '#FFFFFF',
+            useCORS: true
+        });
+        
+        const link = document.createElement('a');
+        link.download = 'horario-madryn-2026.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+
+    async function exportPDF() {
+        const captureArea = document.getElementById('capture-area');
+        const canvas = await html2canvas(captureArea, {
+            scale: 2,
+            backgroundColor: '#FFFFFF'
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        
+        const pdf = new jsPDF('l', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+        pdf.save('horario-madryn-2026.pdf');
+    }
+
+    window.onload = init;
+</script>
+
+</body>
+</html>
